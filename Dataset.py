@@ -23,17 +23,19 @@ class CrackPatches(Dataset):
     def __getitem__(self, idx):
         if idx < self.num_positive:
             dir_name = self.positive_root_dir
-            file_name = "%05d.pkl" % idx
-            label = True
+            file_name = "%05d.jpg" % idx
+            label = 1
         else:
             dir_name = self.negative_root_dir
-            file_name = "%05d.pkl" % (idx - self.num_positive)
-            label = False
+            file_name = "%05d.jpg" % (idx - self.num_positive)
+            label = 0
 
-        img = imageio.imread(str(Path(dir_name + '/' + file_name + '.jpg')))
-        img_torch = torch.from_numpy(img)
+        img = imageio.imread(str(Path(dir_name + '/' + file_name)))
 
-        return (self.transform(img_torch), label)
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return {'img': img, 'y': label}
 
 
 def create_dataloader(args, dataset, test_split=0.2, validation_split=0.01):

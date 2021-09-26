@@ -39,8 +39,10 @@ class Gradcam(nn.Module):
 
         self.loss_func = nn.CrossEntropyLoss()
 
+    def forward(self, input):
+        return self.softmax(self.net(input))
 
-    def forward(self, input, retain_graph=False):
+    def saliency_map(self, input, retain_graph=False):
         """
         Args:
             input: input image with shape of (1, 3, H, W)
@@ -50,12 +52,12 @@ class Gradcam(nn.Module):
             mask: saliency map of the same spatial dimension with input
             logit: model output
         """
-        b, c, h, w = input['img'].size()
+        b, c, h, w = input.size()
 
         logit = self.net(input)
-        score = self.loss_func(logit[:, 0].squeeze())
+        score = logit[:, 1].squeeze()   # only to visualize with a true class
 
-        self.model_arch.zero_grad()
+        self.net.zero_grad()
         score.backward(retain_graph=retain_graph)
         gradients = self.gradients['value']
         activations = self.activations['value']

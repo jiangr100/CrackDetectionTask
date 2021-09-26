@@ -5,6 +5,7 @@ import pickle
 import torchvision.models as torch_models
 import torch.nn.init as inits
 import torch.nn as nn
+from torchvision import transforms
 import matplotlib.pyplot as plt
 
 from hyperparameters import *
@@ -18,12 +19,12 @@ def train(model, train_loader, validation_loader, optimizer, args):
     min_val_loss = float('inf')
     for e in range(args.max_num_epochs):
 
-        for (img, y) in train_loader:
-            img = img.to(args.device)
-            y = y.to(args.device)
+        for data in train_loader:
+            img = data['img'].to(args.device)
+            y = data['y'].to(args.device)
 
-            saliency_map, logit = model(img)
-            loss = model.loss_func(model.softmax(logit))
+            out = model(img)
+            loss = model.loss_func(out, y)
 
             optimizer.zero_grad()
             loss.backward()
@@ -43,17 +44,41 @@ def train(model, train_loader, validation_loader, optimizer, args):
 def validation(model, validation_loader, args):
     average_loss = 0
     num_batches = 0
-    for (img, y) in validation_loader:
-        img = img.to(args.device)
-        y = y.to(args.device)
+    for data in validation_loader:
+        img = data['img'].to(args.device)
+        y = data['y'].to(args.device)
 
-        saliency_map, logit = model(img)
-        loss = model.loss_func(model.softmax(logit))
+        out = model(img)
+        loss = model.loss_func(out, y)
+
+        heatmap = model.saliency_map(img[0])
+        plt.imshow(heatmap)
+        plt.colorbar()
+
+        plt.imshow(img[0].to_numpy())
+        plt.colorbar()
 
         average_loss += loss.item()
         num_batches += 1
 
     return average_loss / num_batches
+
+
+def test(model, test_loader, args):
+    acc = 0
+    num_pairs = 0
+    for data in test_loader:
+        img = data['img'].to(args.device)
+        y = data['y'].to(args.device)
+
+        saliency_map, logit = model(img)
+
+        pred = torch.argmax(model.softmax(logit), dim=1)
+
+        acc += sum(torch.eq(pred, y))
+        num_pairs += len(pred)
+
+    return acc / num_pairs
 
 
 if __name__ == '__main__':
@@ -85,7 +110,7 @@ if __name__ == '__main__':
     dataset = CrackPatches(
         positive_root_dir=str(Path('D:\img_data_files\cropped_images1')),
         negative_root_dir=str(Path('D:\img_data_files\cropped_images_empty1')),
-        transform=None
+        transform=transforms.ToTensor()
     )
 
     train_loader, validation_loader, test_loader = create_dataloader(
@@ -95,6 +120,16 @@ if __name__ == '__main__':
         validation_split=0.01
     )
 
-    train(model, train_loader, validation_loader, optimizer, args)
+    wandb.init(project="test")
+    wandb.watch(model)
 
+    if args.train_mode:
+        train(model, train_loader, validation_loader, optimizer, args)
+    elif os.path.isfile(Path('Checkpoints\\%s\\%s' % (args.exp_name, args.model_save_name + '_' + args.model_loss))):
+        model.load_state_dict(torch.load(Path('Checkpoints\\%s\\%s' % (args.exp_name, args.model_save_name + '_' + args.model_loss))))
+    else:
+        print("No pretrained model found!")
+        exit(0)
+
+    test(model, test_loader, args)
     print(model.target_layer)

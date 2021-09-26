@@ -12,6 +12,12 @@ def get_arguments():
     parser.add_argument('--logs_dir', default='./logs')
     parser.add_argument('--exp_name', default='exp1')
 
+    parser.add_argument('--max_num_epochs',
+                        default=100)
+    parser.add_argument('--batch_size',
+                        default=32)
+    parser.add_argument('--random_seed',
+                        default=12345678)
     parser.add_argument('--device',
                         default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--optimizer',
@@ -22,6 +28,13 @@ def get_arguments():
                         default=0.0001)
     parser.add_argument('--optimizer_momentum',
                         default=0.9)
+
+    parser.add_argument('--train_mode',
+                        default=True)
+    parser.add_argument('--model_save_name',
+                        default='Checkpoint')
+    parser.add_argument('--model_loss',
+                        default='')
 
     args = parser.parse_args()
     return args

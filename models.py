@@ -20,6 +20,7 @@ class Gradcam(nn.Module):
         init_weights = WeightInit(initializer=initializer, nonlinearity='relu', bias=False)
         self.net.apply(init_weights)
 
+        self.softmax = torch.nn.Softmax()
         self.n_class = n_class
 
         target_layer = self.net.layer4
@@ -51,7 +52,7 @@ class Gradcam(nn.Module):
         """
         b, c, h, w = input['img'].size()
 
-        logit = self.model_arch(input)
+        logit = self.net(input)
         score = self.loss_func(logit[:, 0].squeeze())
 
         self.model_arch.zero_grad()

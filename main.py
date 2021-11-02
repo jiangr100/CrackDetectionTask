@@ -45,8 +45,9 @@ def train(model, train_loader, validation_loader, optimizer, args):
             optimizer.step()
             wandb.log({"train_loss": loss})
 
-        val_loss = validation(model, validation_loader, args, e)
+        val_loss, val_acc = validation(model, validation_loader, args, e)
         wandb.log({"val_loss": val_loss})
+        wandb.log({"val_acc": val_acc})
 
         if val_loss < min_val_loss:
             min_val_loss = val_loss
@@ -58,7 +59,8 @@ def train(model, train_loader, validation_loader, optimizer, args):
 def validation(model, validation_loader, args, e):
     average_loss = 0
     num_batches = 0
-    displayed = False
+    acc = 0
+    num_pairs = 0
     for data in validation_loader:
         img = data['img'].to(args.device)
         y = data['y'].to(args.device)
@@ -66,10 +68,14 @@ def validation(model, validation_loader, args, e):
         out = model(img)
         loss = model.loss_func(out, y)
 
+        pred = torch.argmax(out, dim=1)
+        acc += sum(torch.eq(pred, y))
+        num_pairs += len(pred)
+
         average_loss += loss.item()
         num_batches += 1
 
-    return average_loss / num_batches
+    return average_loss / num_batches, acc*1.0 / num_pairs
 
 
 def test(model, test_loader, args):

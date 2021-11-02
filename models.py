@@ -5,6 +5,7 @@ import torch.nn as nn
 from utils import *
 import copy
 from pathlib import Path
+from focalloss import FocalLoss
 
 import torch.nn.functional as F
 
@@ -40,7 +41,7 @@ class Gradcam(nn.Module):
         target_layer.register_backward_hook(backward_hook)
         '''
 
-        self.loss_func = nn.CrossEntropyLoss()
+        self.loss_func = FocalLoss(gamma=2)
 
     def forward(self, input):
         # return self.softmax(self.net(input))

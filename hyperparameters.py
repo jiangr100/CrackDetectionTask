@@ -7,15 +7,15 @@ def get_arguments():
     parser.add_argument('--arch', default='resnet50')
     parser.add_argument('--initializer',
                         default='kaiming_uniform_')
-    parser.add_argument('--n_class', default=2)
+    parser.add_argument('--n_class', default=3)
 
     parser.add_argument('--logs_dir', default='./logs')
-    parser.add_argument('--exp_name', default='exp15')
+    parser.add_argument('--exp_name', default='exp16')
 
     parser.add_argument('--max_num_epochs',
                         default=100)
     parser.add_argument('--batch_size',
-                        default=512)
+                        default=1024)
     parser.add_argument('--random_seed',
                         default=12345678)
     parser.add_argument('--device',
@@ -49,7 +49,7 @@ def get_arguments():
                         default='exp10')
 
     parser.add_argument('--generate_gb',
-                        default=True)
+                        default=False)
     parser.add_argument('--num_patches',
                         default=100)
     parser.add_argument('--patch_size',

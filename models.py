@@ -9,6 +9,7 @@ from pathlib import Path
 import torch.nn.functional as F
 
 
+
 class Gradcam(nn.Module):
 
     def __init__(self, encoder_model, initializer, n_class=2):
@@ -25,6 +26,7 @@ class Gradcam(nn.Module):
 
         target_layer = self.net.layer4
 
+        '''
         self.gradients = dict()
         self.activations = dict()
         def backward_hook(module, grad_input, grad_output):
@@ -36,12 +38,15 @@ class Gradcam(nn.Module):
 
         target_layer.register_forward_hook(forward_hook)
         target_layer.register_backward_hook(backward_hook)
+        '''
 
         self.loss_func = nn.CrossEntropyLoss()
 
     def forward(self, input):
-        return self.softmax(self.net(input))
+        # return self.softmax(self.net(input))
+        return self.net(input)
 
+    '''
     def saliency_map(self, input, retain_graph=False):
         """
         Args:
@@ -73,7 +78,8 @@ class Gradcam(nn.Module):
         saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
         saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
 
-        return saliency_map, logit
+        return saliency_map
+    '''
 
 
 

@@ -10,24 +10,30 @@ from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 class CrackPatches(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, positive_root_dir, negative_root_dir, transform=None):
-        self.positive_root_dir = positive_root_dir
-        self.negative_root_dir = negative_root_dir
-        self.num_positive = len(os.listdir(positive_root_dir))
-        self.num_negative = len(os.listdir(negative_root_dir))
+    def __init__(self, crack_dir, pothole_dir, empty_dir, transform=None):
+        self.crack_dir = crack_dir
+        self.pothole_dir = pothole_dir
+        self.empty_dir = empty_dir
+        self.num_crack = len(os.listdir(crack_dir))
+        self.num_pothole = len(os.listdir(pothole_dir))
+        self.num_empty = len(os.listdir(empty_dir))
         self.transform = transform
 
     def __len__(self):
-        return self.num_positive + self.num_negative
+        return self.num_crack + self.num_pothole + self.num_empty
 
     def __getitem__(self, idx):
-        if idx < self.num_positive:
-            dir_name = self.positive_root_dir
-            file_name = "%05d.jpg" % idx
+        if idx < self.num_crack:
+            dir_name = self.crack_dir
+            file_name = "%06d.jpg" % idx
             label = 1
+        elif idx < self.num_crack + self.num_pothole:
+            dir_name = self.pothole_dir
+            file_name = "%06d.jpg" % (idx - self.num_crack)
+            label = 2
         else:
-            dir_name = self.negative_root_dir
-            file_name = "%05d.jpg" % (idx - self.num_positive)
+            dir_name = self.empty_dir
+            file_name = "%06d.jpg" % (idx - self.num_crack - self.num_pothole)
             label = 0
 
         img = imageio.imread(str(Path(dir_name + '/' + file_name)))

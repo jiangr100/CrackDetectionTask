@@ -68,7 +68,7 @@ def validation(model, validation_loader, args, e):
         out = model(img)
         loss = model.loss_func(out, y)
 
-        pred = torch.argmax(out, dim=1)
+        pred = torch.argmax(model.softmax(out), dim=1)
         acc += sum(torch.eq(pred, y))
         num_pairs += len(pred)
 

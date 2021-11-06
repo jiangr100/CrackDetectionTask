@@ -69,8 +69,8 @@ def validation(model, validation_loader, args, e):
         loss = model.loss_func(out, y)
 
         pred = torch.argmax(model.softmax(out), dim=1)
-        acc += sum(torch.eq(pred, y))
-        num_pairs += len(pred)
+        acc += sum(torch.eq(pred, y).item())
+        num_pairs += len(pred.item())
 
         average_loss += loss.item()
         num_batches += 1
@@ -89,8 +89,8 @@ def test(model, test_loader, args):
 
         pred = torch.argmax(out, dim=1)
 
-        acc += sum(torch.eq(pred, y))
-        num_pairs += len(pred)
+        acc += sum(torch.eq(pred, y).item())
+        num_pairs += len(pred.item())
 
     return acc / num_pairs
 

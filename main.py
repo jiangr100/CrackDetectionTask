@@ -65,12 +65,12 @@ def validation(model, validation_loader, args, e):
         img = data['img'].to(args.device)
         y = data['y'].to(args.device)
 
-        out = model(img)
+        out = model(img).detach()
         loss = model.loss_func(out, y)
 
-        pred = torch.argmax(model.softmax(out), dim=1)
-        acc += sum(torch.eq(pred, y).item())
-        num_pairs += len(pred.item())
+        pred = torch.argmax(model.softmax(out).detach(), dim=1)
+        acc += sum(torch.eq(pred, y.detach()))
+        num_pairs += len(pred)
 
         average_loss += loss.item()
         num_batches += 1
@@ -85,12 +85,12 @@ def test(model, test_loader, args):
         img = data['img'].to(args.device)
         y = data['y'].to(args.device)
 
-        out = model.softmax(model(img))
+        out = model.softmax(model(img)).detach()
 
         pred = torch.argmax(out, dim=1)
 
-        acc += sum(torch.eq(pred, y).item())
-        num_pairs += len(pred.item())
+        acc += sum(torch.eq(pred, y.detach()))
+        num_pairs += len(pred)
 
     return acc / num_pairs
 
@@ -198,9 +198,9 @@ if __name__ == '__main__':
         transforms.Normalize(mean=args.normalization_mean, std=args.normalization_std)
     ])
     dataset = CrackPatches(
-        crack_dir=str(Path('D:\img_data_files\crack')),
-        pothole_dir=str(Path('D:\img_data_files\pothole')),
-        empty_dir=str(Path('D:\img_data_files\empty')),
+        crack_dir=str(Path('D:\img_data_files\crack128')),
+        pothole_dir=str(Path('D:\img_data_files\pothole128')),
+        empty_dir=str(Path('D:\img_data_files\empty128')),
         transform=data_transform
     )
 
@@ -276,7 +276,7 @@ if __name__ == '__main__':
                 patch = img_tensor[:, i_patch:i_patch+args.patch_size, j_patch:j_patch+args.patch_size].to(args.device)
                 out = model.softmax(model(patch.unsqueeze(dim=0)))
                 pred = torch.argmax(out, dim=1)
-                if pred[0] == 0:
+                if pred[0] == 0: # or pred[0] == 2:
                     continue
 
                 # print(i)
@@ -285,6 +285,9 @@ if __name__ == '__main__':
 
                 res_gb_patch = res_gb[i_patch:i_patch+args.patch_size, j_patch:j_patch+args.patch_size, :]
                 res_gb_cam_patch = res_gb_cam[i_patch:i_patch+args.patch_size, j_patch:j_patch+args.patch_size, :]
+
+                gb = np.where((gb > 190) | (gb < 90), 255, 0)
+                gb_cam = np.where((gb_cam > 190) | (gb_cam < 90), 255, 0)
 
                 new_res_gb_patch = np.where(gb > res_gb_patch, gb, res_gb_patch)
                 new_res_gb_cam_patch = np.where(gb_cam > res_gb_cam_patch, gb_cam, res_gb_cam_patch)
@@ -300,6 +303,7 @@ if __name__ == '__main__':
         cv2.imwrite(str(Path('./final_result/%s/gb.jpg' % args.exp_name)), res_gb)
         cv2.imwrite(str(Path('./final_result/%s/gb_cam.jpg' % args.exp_name)), res_gb_cam)
 
+    '''
     gb_img = str(Path('./final_result/exp13/gb.jpg'))
     rgb_img = cv2.imread(gb_img, 1)[:, :, ::-1]
     rgb_img = rgb_img[:2480, :1980]
@@ -307,6 +311,7 @@ if __name__ == '__main__':
     img_norm = cv2.normalize(rgb_img, None, 0, 255, norm_type=cv2.NORM_MINMAX)
     img_norm = np.where(img_norm < 100, 0, img_norm)
     cv2.imwrite(str(Path('./final_result/%s/gb_norm.jpg' % args.exp_name)), img_norm)
+    '''
 
 
 

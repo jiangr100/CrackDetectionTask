@@ -10,12 +10,12 @@ def get_arguments():
     parser.add_argument('--n_class', default=3)
 
     parser.add_argument('--logs_dir', default='./logs')
-    parser.add_argument('--exp_name', default='exp16')
+    parser.add_argument('--exp_name', default='exp20')
 
     parser.add_argument('--max_num_epochs',
-                        default=100)
+                        default=200)
     parser.add_argument('--batch_size',
-                        default=1024)
+                        default=256)
     parser.add_argument('--random_seed',
                         default=12345678)
     parser.add_argument('--device',
@@ -34,26 +34,27 @@ def get_arguments():
                         default=[0.5, 0.5, 0.5])
 
     parser.add_argument('--train_mode',
-                        default=True)
+                        default=False)
     parser.add_argument('--overfitting_test',
                         default=False)
     parser.add_argument('--show_test_result',
-                        default=True)
+                        default=False)
     parser.add_argument('--show_cam',
                         default=False)
     parser.add_argument('--model_save_name',
                         default='Checkpoint')
     parser.add_argument('--model_loss',
-                        default='0.122730')
+                        default='0.046971')
     parser.add_argument('--load_exp_name',
-                        default='exp10')
+                        default='exp19')
+    # exp17 is the best one for 64*64 patches
 
     parser.add_argument('--generate_gb',
-                        default=False)
+                        default=True)
     parser.add_argument('--num_patches',
                         default=100)
     parser.add_argument('--patch_size',
-                        default=64)
+                        default=128)
 
     parser.add_argument('--use-cuda', action='store_true', default=True,
                         help='Use NVIDIA GPU acceleration')

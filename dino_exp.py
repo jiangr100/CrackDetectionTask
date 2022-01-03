@@ -14,40 +14,30 @@ from models import *
 from Dataset import *
 
 import wandb
-from pytorch_grad_cam import GradCAM, \
-    ScoreCAM, \
-    GradCAMPlusPlus, \
-    AblationCAM, \
-    XGradCAM, \
-    EigenCAM, \
-    EigenGradCAM, \
-    LayerCAM, \
-    FullGrad
-from pytorch_grad_cam import GuidedBackpropReLUModel
-from pytorch_grad_cam.utils.image import show_cam_on_image, \
-    deprocess_image, \
-    preprocess_image
+
+from dino import Dino
+from vit import ViT
 
 
-def train(model, train_loader, validation_loader, optimizer, args):
+def train(model, learner, train_loader, validation_loader, optimizer, lr_scheduler, args):
     min_val_loss = float('inf')
     for e in range(args.max_num_epochs):
 
+        current_teacher_temp = 0.04 + (0.001 * e if e < 30 else 0.03)
         for data in train_loader:
             img = data['img'].to(args.device)
-            y = data['y'].to(args.device)
 
-            out = model(img)
-            loss = model.loss_func(out, y)
-
+            loss = learner(img, teacher_temp=current_teacher_temp)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            wandb.log({"train_loss": loss})
+            learner.update_moving_average()  # update moving average of teacher encoder and teacher centers
 
-        val_loss, val_acc = validation(model, validation_loader, args, e)
-        wandb.log({"val_loss": val_loss})
-        wandb.log({"val_acc": val_acc})
+            wandb.log({"train_loss": loss.item()})
+        lr_scheduler.step()
+
+        val_loss = validation(learner, validation_loader)
+        wandb.log({"val_loss": val_loss, "#epoch": e})
 
         if val_loss < min_val_loss:
             min_val_loss = val_loss
@@ -56,115 +46,30 @@ def train(model, train_loader, validation_loader, optimizer, args):
             torch.save(model.state_dict(), Path('Checkpoints/%s/%s_%f.pt' % (args.exp_name, args.model_save_name, min_val_loss)))
 
 
-def validation(model, validation_loader, args, e):
+def validation(learner, validation_loader):
     average_loss = 0
     num_batches = 0
-    acc = 0
-    num_pairs = 0
     for data in validation_loader:
         img = data['img'].to(args.device)
-        y = data['y'].to(args.device)
-
-        out = model(img).detach()
-        loss = model.loss_func(out, y)
-
-        pred = torch.argmax(model.softmax(out).detach(), dim=1)
-        acc += sum(torch.eq(pred, y.detach()))
-        num_pairs += len(pred)
+        loss = learner(img)
 
         average_loss += loss.item()
         num_batches += 1
 
-    return average_loss / num_batches, acc*1.0 / num_pairs
+    return average_loss / num_batches
 
 
-def test(model, test_loader, args):
-    acc = 0
-    num_pairs = 0
+def test(learner, test_loader):
+    average_loss = 0
+    num_batches = 0
     for data in test_loader:
         img = data['img'].to(args.device)
-        y = data['y'].to(args.device)
+        loss = learner(img)
 
-        out = model.softmax(model(img)).detach()
+        average_loss += loss.item()
+        num_batches += 1
 
-        pred = torch.argmax(out, dim=1)
-
-        acc += sum(torch.eq(pred, y.detach()))
-        num_pairs += len(pred)
-
-    return acc / num_pairs
-
-
-def calculate_cam(model, img, args, file_path):
-    target_layers = [model.layer4[-1]]
-
-    methods = \
-        {"gradcam": GradCAM,
-         "scorecam": ScoreCAM,
-         "gradcam++": GradCAMPlusPlus,
-         "ablationcam": AblationCAM,
-         "xgradcam": XGradCAM,
-         "eigencam": EigenCAM,
-         "eigengradcam": EigenGradCAM,
-         "layercam": LayerCAM,
-         "fullgrad": FullGrad}
-
-    # Choose the target layer you want to compute the visualization for.
-    # Usually this will be the last convolutional layer in the model.
-    # Some common choices can be:
-    # Resnet18 and 50: model.layer4[-1]
-    # VGG, densenet161: model.features[-1]
-    # mnasnet1_0: model.layers[-1]
-    # You can print the model to help chose the layer
-    # You can pass a list with several target layers,
-    # in that case the CAMs will be computed per layer and then aggregated.
-    # You can also try selecting all layers of a certain type, with e.g:
-    # from pytorch_grad_cam.utils.find_layers import find_layer_types_recursive
-    # find_layer_types_recursive(model, [torch.nn.ReLU])
-    target_layers = [model.layer4[-1]]
-
-    input_tensor = img.unsqueeze(0)
-
-    # If None, returns the map for the highest scoring category.
-    # Otherwise, targets the requested category.
-    target_category = None
-
-    # Using the with statement ensures the context is freed, and you can
-    # recreate different CAM objects in a loop.
-    cam_algorithm = methods[args.method]
-    with cam_algorithm(model=model,
-                       target_layers=target_layers,
-                       use_cuda=args.use_cuda) as cam:
-        # AblationCAM and ScoreCAM have batched implementations.
-        # You can override the internal batch size for faster computation.
-        cam.batch_size = 32
-
-        grayscale_cam = cam(input_tensor=input_tensor,
-                            target_category=target_category,
-                            aug_smooth=args.aug_smooth,
-                            eigen_smooth=args.eigen_smooth)
-
-        # Here grayscale_cam has only one image in the batch
-        grayscale_cam = grayscale_cam[0, :]
-
-        cam_image = show_cam_on_image(img.detach().cpu().permute(1, 2, 0).numpy(), grayscale_cam, use_rgb=True)
-
-        # cam_image is RGB encoded whereas "cv2.imwrite" requires BGR encoding.
-        cam_image = cv2.cvtColor(cam_image, cv2.COLOR_RGB2BGR)
-
-    gb_model = GuidedBackpropReLUModel(model=model, use_cuda=args.use_cuda)
-    gb = gb_model(input_tensor, target_category=target_category)
-
-    cam_mask = cv2.merge([grayscale_cam, grayscale_cam, grayscale_cam])
-    cam_gb = deprocess_image(cam_mask * gb)
-    gb = deprocess_image(gb)
-
-    if file_path is not None:
-        cv2.imwrite(str(Path(file_path + '_cam.jpg')), cam_image)
-        cv2.imwrite(str(Path(file_path + '_gb.jpg')), gb)
-        cv2.imwrite(str(Path(file_path + '_cam_gb.jpg')), cam_gb)
-
-    return cam_image, gb, cam_gb
+    return average_loss / num_batches
 
 
 if __name__ == '__main__':
@@ -176,21 +81,43 @@ if __name__ == '__main__':
         with open(Path(args.logs_dir + '/' + args.exp_name + '/' + 'hp.pl'), 'wb') as f:
             pickle.dump(args_dict, f)
 
-    model = Gradcam(
-        encoder_model=torch_models.__dict__[args.arch],
-        initializer=inits.__dict__[args.initializer],
-        n_class=args.n_class
-    )
     print("GPU count: ", torch.cuda.device_count())
-    # if torch.cuda.device_count() > 1:
-    #     model = MocoDataParallel(model)
-    model.to(args.device)
 
-    loss_func = nn.CrossEntropyLoss()
+    model = ViT(
+        image_size=256,
+        patch_size=16,
+        num_classes=1000,
+        dim=1024,
+        depth=6,
+        heads=8,
+        mlp_dim=2048
+    ).to(args.device)
+
+    learner = Dino(
+        model,
+        image_size=256,
+        hidden_layer='to_latent',  # hidden layer name or index, from which to extract the embedding
+        projection_hidden_size=256,  # projector network hidden dimension
+        projection_layers=4,  # number of layers in projection network
+        num_classes_K=65336,  # output logits dimensions (referenced as K in paper)
+        student_temp=0.1,  # student temperature
+        teacher_temp=0.04,  # teacher temperature, needs to be annealed from 0.04 to 0.07 over 30 epochs
+        local_upper_crop_scale=0.4,  # upper bound for local crop - 0.4 was recommended in the paper
+        global_lower_crop_scale=0.5,  # lower bound for global crop - 0.5 was recommended in the paper
+        moving_average_decay=0.999,  # moving average of encoder - paper showed anywhere from 0.9 to 0.999 was ok
+        center_moving_average_decay=0.999,
+        # moving average of teacher centers - paper showed anywhere from 0.9 to 0.999 was ok
+    )
+
     optimizer = torch.optim.__dict__[args.optimizer](
         params=model.parameters(),
-        lr=args.lr,
+        lr=args.lr * args.batch_size / 256,
         weight_decay=args.weight_decay
+    )
+
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer=optimizer,
+        T_max=200
     )
 
     data_transform = transforms.Compose([
@@ -199,8 +126,8 @@ if __name__ == '__main__':
     ])
     dataset = CrackPatches(
         crack_dir=str(Path('D:\img_data_files\crack128')),
-        pothole_dir=str(Path('D:\img_data_files\pothole128')),
-        empty_dir=str(Path('D:\img_data_files\empty128')),
+        pothole_dir=None,
+        empty_dir=None,
         transform=data_transform
     )
 
@@ -214,20 +141,8 @@ if __name__ == '__main__':
     wandb.init(project=args.exp_name)
     wandb.watch(model)
 
-    if args.overfitting_test:
-        of_train_loader, _, _ = train_loader, validation_loader, test_loader = create_dataloader(
-            args=args,
-            dataset=dataset,
-            test_split=0.98,
-            validation_split=0.01
-        )
-        train(model, of_train_loader, of_train_loader, optimizer, args)
-        of_accuracy = test(model, of_train_loader, args)
-        print("overfitting accuracy is : ", of_accuracy)
-        exit(0)
-
     if args.train_mode:
-        train(model, train_loader, validation_loader, optimizer, args)
+        train(model, learner, train_loader, validation_loader, optimizer, lr_scheduler, args)
     elif os.path.isfile(Path('Checkpoints\\%s\\%s' % (args.load_exp_name, args.model_save_name + '_' + args.model_loss + '.pt'))):
         model.load_state_dict(torch.load(Path('Checkpoints\\%s\\%s' % (args.load_exp_name, args.model_save_name + '_' + args.model_loss + '.pt'))))
     else:
@@ -235,7 +150,7 @@ if __name__ == '__main__':
         exit(0)
 
     if args.show_test_result:
-        accuracy = test(model, test_loader, args)
+        accuracy = test(learner, test_loader)
         print("test accuracy is : ", accuracy)
 
     if args.show_cam:

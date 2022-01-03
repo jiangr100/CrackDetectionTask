@@ -10,12 +10,12 @@ def get_arguments():
     parser.add_argument('--n_class', default=3)
 
     parser.add_argument('--logs_dir', default='./logs')
-    parser.add_argument('--exp_name', default='exp20')
+    parser.add_argument('--exp_name', default='multi_classification_exp5')
 
     parser.add_argument('--max_num_epochs',
                         default=200)
     parser.add_argument('--batch_size',
-                        default=256)
+                        default=8)
     parser.add_argument('--random_seed',
                         default=12345678)
     parser.add_argument('--device',
@@ -23,7 +23,7 @@ def get_arguments():
     parser.add_argument('--optimizer',
                         default='Adam')
     parser.add_argument('--lr',
-                        default=0.001)
+                        default=5e-4)
     parser.add_argument('--weight_decay',
                         default=0.0001)
     parser.add_argument('--optimizer_momentum',
@@ -35,26 +35,29 @@ def get_arguments():
 
     parser.add_argument('--train_mode',
                         default=False)
+    parser.add_argument('--load_pretrained_model',
+                        default=True)
     parser.add_argument('--overfitting_test',
                         default=False)
     parser.add_argument('--show_test_result',
-                        default=False)
+                        default=True)
     parser.add_argument('--show_cam',
                         default=False)
     parser.add_argument('--model_save_name',
                         default='Checkpoint')
     parser.add_argument('--model_loss',
-                        default='0.046971')
+                        default='0.321078')
     parser.add_argument('--load_exp_name',
-                        default='exp19')
+                        default='multi_classification_exp4')
     # exp17 is the best one for 64*64 patches
+    # exp19 is the best one for 128*128 patches
 
     parser.add_argument('--generate_gb',
-                        default=True)
+                        default=False)
     parser.add_argument('--num_patches',
                         default=100)
     parser.add_argument('--patch_size',
-                        default=128)
+                        default=64)
 
     parser.add_argument('--use-cuda', action='store_true', default=True,
                         help='Use NVIDIA GPU acceleration')
@@ -84,6 +87,10 @@ def get_arguments():
         print('Using GPU for acceleration')
     else:
         print('Using CPU for computation')
+
+    # multi classification task
+    parser.add_argument('--n_crack_types', default=5)
+    parser.add_argument('--positive_threshold', default=0.5)
 
     args = parser.parse_args()
     return args

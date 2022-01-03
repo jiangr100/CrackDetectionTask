@@ -6,9 +6,9 @@ from utils import *
 import copy
 from pathlib import Path
 from focalloss import FocalLoss
+from torch.nn import BCELoss
 
 import torch.nn.functional as F
-
 
 
 class Gradcam(nn.Module):
@@ -24,63 +24,17 @@ class Gradcam(nn.Module):
 
         self.softmax = torch.nn.Softmax()
         self.n_class = n_class
+        self.Sigmoid = nn.Sigmoid()
 
         target_layer = self.net.layer4
 
-        '''
-        self.gradients = dict()
-        self.activations = dict()
-        def backward_hook(module, grad_input, grad_output):
-            self.gradients['value'] = grad_output[0]
-            return None
-        def forward_hook(module, input, output):
-            self.activations['value'] = output
-            return None
-
-        target_layer.register_forward_hook(forward_hook)
-        target_layer.register_backward_hook(backward_hook)
-        '''
-
-        self.loss_func = FocalLoss(gamma=2)
+        self.loss_func = BCELoss()
 
     def forward(self, input):
         # return self.softmax(self.net(input))
         return self.net(input)
 
-    '''
-    def saliency_map(self, input, retain_graph=False):
-        """
-        Args:
-            input: input image with shape of (1, 3, H, W)
-            class_idx (int): class index for calculating GradCAM.
-                    If not specified, the class index that makes the highest model prediction score will be used.
-        Return:
-            mask: saliency map of the same spatial dimension with input
-            logit: model output
-        """
-        b, c, h, w = input.size()
 
-        logit = self.net(input)
-        score = logit[:, 1].squeeze()   # only to visualize with a true class
-
-        self.net.zero_grad()
-        score.backward(retain_graph=retain_graph)
-        gradients = self.gradients['value']
-        activations = self.activations['value']
-        b, k, u, v = gradients.size()
-
-        alpha = gradients.view(b, k, -1).mean(2)
-        #alpha = F.relu(gradients.view(b, k, -1)).mean(2)
-        weights = alpha.view(b, k, 1, 1)
-
-        saliency_map = (weights*activations).sum(1, keepdim=True)
-        saliency_map = F.relu(saliency_map)
-        saliency_map = F.upsample(saliency_map, size=(h, w), mode='bilinear', align_corners=False)
-        saliency_map_min, saliency_map_max = saliency_map.min(), saliency_map.max()
-        saliency_map = (saliency_map - saliency_map_min).div(saliency_map_max - saliency_map_min).data
-
-        return saliency_map
-    '''
 
 
 

@@ -34,9 +34,9 @@ def get_arguments():
                         default=[0.5, 0.5, 0.5])
 
     parser.add_argument('--train_mode',
-                        default=False)
-    parser.add_argument('--load_pretrained_model',
                         default=True)
+    parser.add_argument('--load_pretrained_model',
+                        default=False)
     parser.add_argument('--overfitting_test',
                         default=False)
     parser.add_argument('--show_test_result',

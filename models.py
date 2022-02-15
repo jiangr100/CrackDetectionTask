@@ -13,11 +13,13 @@ import torch.nn.functional as F
 
 class Gradcam(nn.Module):
 
-    def __init__(self, encoder_model, initializer, n_class=2):
+    def __init__(self, encoder_model, initializer, n_class=2, input_channels=3):
 
         super(Gradcam, self).__init__()
 
         self.net = encoder_model()
+        self.net.conv1 = nn.Conv2d(input_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
         self.net.fc = nn.Linear(2048, n_class)
         init_weights = WeightInit(initializer=initializer, nonlinearity='relu', bias=False)
         self.net.apply(init_weights)

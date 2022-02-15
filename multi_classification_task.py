@@ -126,7 +126,8 @@ if __name__ == '__main__':
     model = Gradcam(
         encoder_model=torch_models.__dict__[args.arch],
         initializer=inits.__dict__[args.initializer],
-        n_class=args.n_crack_types
+        n_class=args.n_crack_types,
+        input_channels=3
     )
     print("GPU count: ", torch.cuda.device_count())
     # if torch.cuda.device_count() > 1:
@@ -153,15 +154,17 @@ if __name__ == '__main__':
     )
 
     data_transform = transforms.Compose([
+        # transforms.ToPILImage(),
         transforms.Resize((509, 625)),
         transforms.ToTensor(),
-        random_aug,
-        transforms.Normalize(mean=args.normalization_mean, std=args.normalization_std)
+        # random_aug,
+        # transforms.Normalize(mean=args.normalization_mean, std=args.normalization_std)
     ])
     dataset = CrackClassification(
         data_dir=str(Path('D:\\pickle_files')),
         transform=data_transform,
-        mode='crack_type_group'
+        mode='crack_type',
+        augmented_data_dir=str(Path('D:\\image_augmentations')),
     )
 
     train_loader, validation_loader, test_loader = create_dataloader(

@@ -7,6 +7,7 @@ import random
 import numpy as np
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, WeightedRandomSampler, Subset
 from PIL import Image, ImageFile
+from crack_mask_generation import mask_generation
 
 class CrackPatches(Dataset):
     """Face Landmarks dataset."""
@@ -45,8 +46,9 @@ class CrackPatches(Dataset):
         return {'img': img, 'y': label}
 
 class CrackClassification(Dataset):
-    def __init__(self, data_dir, mode, transform):
+    def __init__(self, data_dir, mode, transform, augmented_data_dir=None):
         self.data_dir = data_dir
+        self.augmented_data_dir = augmented_data_dir
         self.transform = transform
         self.mode = mode
         self.crack_to_cls = dict()
@@ -163,7 +165,14 @@ class CrackClassification(Dataset):
         for crack_type in data[load_field]:
             cls[self.crack_to_cls[self.mode][crack_type]] = 1
 
-        return {'img': img if self.transform == None else self.transform(img), 'y': cls}
+        if self.augmented_data_dir is not None:
+            img_corrected = Image.open(str(Path(self.augmented_data_dir + '/' + "/%07d_corrected.png"%idx)))
+            img_mask_raw = Image.open(str(Path(self.augmented_data_dir + '/' + "/%07d_mask_raw.png"%idx)))
+            img_mask_refined = Image.open(str(Path(self.augmented_data_dir + '/' + "/%07d_mask_refined.png"%idx)))
+
+            img = np.concatenate((img, img_corrected, img_mask_raw, img_mask_refined), axis=2)
+
+        return {'img': img if self.transform == None else self.transform(img), 'y': cls}# , 'sev': data['cracks_with_sev']}
 
 def create_dataloader(args, dataset, test_split=0.2, validation_split=0.01, with_weight=False):
     batch_size = args.batch_size
